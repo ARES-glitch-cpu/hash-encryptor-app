@@ -28,19 +28,21 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y git zip unzip openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev
 
-    - name: Accept Android SDK licenses
+    - name: Pre-accept Android SDK licenses
       run: |
-        # Автоматически принимаем ВСЕ лицензии Android SDK
-        yes | sdkmanager --licenses || true
-      env:
-        ANDROID_HOME: /usr/lib/android-sdk
-        ANDROID_SDK_ROOT: /usr/lib/android-sdk
+        # Создаем файлы лицензий в стандартной папке Android
+        mkdir -p $HOME/.android
+        echo -e "\n24333f8a63b6825ea9c5514f83c2829b004d1fee" > $HOME/.android/android-sdk-licenses
+        echo -e "\n84831b9409646a918e30573bab4c9c91346d8abd" > $HOME/.android/android-sdk-preview-license
+        
+        # Создаем файлы лицензий в специфичной папке Buildozer
+        # Buildozer скачает туда SDK, но папка licenses сохранится
+        mkdir -p $HOME/.buildozer/android/platform/android-sdk/licenses
+        echo -e "\n24333f8a63b6825ea9c5514f83c2829b004d1fee" > $HOME/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
+        echo -e "\n84831b9409646a918e30573bab4c9c91346d8abd" > $HOME/.buildozer/android/platform/android-sdk/licenses/android-sdk-preview-license
 
     - name: Build APK with Buildozer
       run: buildozer android debug
-      env:
-        ANDROID_HOME: /usr/lib/android-sdk
-        ANDROID_SDK_ROOT: /usr/lib/android-sdk
 
     - name: Upload APK artifact
       uses: actions/upload-artifact@v4
