@@ -7,22 +7,17 @@ on:
   workflow_dispatch:
 
 env:
-  # Python
   PYTHON_VERSION: "3.11"
 
-  # Android
   ANDROID_API: "33"
   ANDROID_MIN_API: "21"
   ANDROID_NDK_VERSION: "25.2.9519653"
 
-  # Android SDK
   ANDROID_HOME: ${{ github.workspace }}/android-sdk
   ANDROID_SDK_ROOT: ${{ github.workspace }}/android-sdk
 
-  # Buildozer
   BUILDOZER_WARN_ON_ROOT: "0"
 
-  # p4a
   PYTHONFORANDROID_PREREQUISITES_INSTALL_INTERACTIVE: "0"
 
 jobs:
@@ -33,7 +28,7 @@ jobs:
     steps:
 
       # ---------------------------------------------------------
-      # 1. Получаем исходники
+      # 1. Checkout
       # ---------------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -44,8 +39,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
+          python-version: "3.11"
 
       # ---------------------------------------------------------
       # 3. Java 17
@@ -92,9 +86,6 @@ jobs:
 
       # ---------------------------------------------------------
       # 5. Rust
-      #
-      # Некоторые современные Python-зависимости, включая
-      # криптографические компоненты, используют Rust.
       # ---------------------------------------------------------
       - name: Install Rust
         run: |
@@ -114,9 +105,7 @@ jobs:
           cargo --version
 
       # ---------------------------------------------------------
-      # 6. Установка Android command line tools
-      #
-      # Используем официальный пакет Google.
+      # 6. Android SDK command line tools
       # ---------------------------------------------------------
       - name: Install Android SDK command line tools
         run: |
@@ -185,7 +174,7 @@ jobs:
           ls -la "$ANDROID_HOME/ndk/${ANDROID_NDK_VERSION}"
 
       # ---------------------------------------------------------
-      # 9. Переменные Android
+      # 9. Android environment
       # ---------------------------------------------------------
       - name: Configure Android environment
         run: |
@@ -206,7 +195,7 @@ jobs:
           echo "PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$NDK_PATH:$HOME/.cargo/bin:$PATH" >> "$GITHUB_ENV"
 
       # ---------------------------------------------------------
-      # 10. Проверяем Android SDK/NDK
+      # 10. Проверка Android environment
       # ---------------------------------------------------------
       - name: Verify Android environment
         run: |
@@ -233,10 +222,7 @@ jobs:
           test -d "$ANDROID_HOME/ndk/${ANDROID_NDK_VERSION}"
 
       # ---------------------------------------------------------
-      # 11. Устанавливаем Buildozer
-      #
-      # Используем актуальный master Buildozer.
-      # Cython < 3 нужен для совместимости ряда рецептов.
+      # 11. Buildozer
       # ---------------------------------------------------------
       - name: Install Buildozer
         run: |
@@ -254,7 +240,7 @@ jobs:
           buildozer --version
 
       # ---------------------------------------------------------
-      # 12. Проверяем buildozer.spec
+      # 12. Показать buildozer.spec
       # ---------------------------------------------------------
       - name: Show build configuration
         run: |
@@ -264,14 +250,7 @@ jobs:
           cat buildozer.spec
 
       # ---------------------------------------------------------
-      # 13. Создаём совместимые старые пути SDK
-      #
-      # Это важно именно для твоей предыдущей ошибки:
-      #
-      # .../.buildozer/android/platform/android-sdk/tools/bin/sdkmanager
-      #
-      # Современный Android SDK больше не использует tools/bin,
-      # поэтому создаём compatibility symlink.
+      # 13. Совместимость Buildozer со старым SDK layout
       # ---------------------------------------------------------
       - name: Configure Buildozer SDK compatibility
         run: |
@@ -302,10 +281,7 @@ jobs:
           ls -la "$ANDROID_HOME/tools/bin/sdkmanager"
 
       # ---------------------------------------------------------
-      # 14. Полностью очищаем старую сборку
-      #
-      # Это намеренно: предыдущие попытки могли оставить
-      # повреждённые OpenSSL/p4a build artifacts.
+      # 14. Очистка старых сборок
       # ---------------------------------------------------------
       - name: Clean previous Buildozer state
         run: |
@@ -317,7 +293,7 @@ jobs:
           mkdir -p .buildozer
 
       # ---------------------------------------------------------
-      # 15. Build APK
+      # 15. Сборка APK
       # ---------------------------------------------------------
       - name: Build Android APK
         env:
@@ -336,6 +312,7 @@ jobs:
           export NDKAPI="${ANDROID_MIN_API}"
 
           echo "===== FINAL ENVIRONMENT ====="
+
           echo "ANDROID_HOME=$ANDROID_HOME"
           echo "ANDROIDSDK=$ANDROIDSDK"
           echo "ANDROIDNDK=$ANDROIDNDK"
@@ -343,6 +320,7 @@ jobs:
           echo "NDKAPI=$NDKAPI"
 
           echo "===== NDK VERSION ====="
+
           "$ANDROIDNDK/ndk-build" --version || true
 
           echo "===== BUILD ====="
@@ -350,7 +328,7 @@ jobs:
           buildozer -v android debug
 
       # ---------------------------------------------------------
-      # 16. Показываем результат
+      # 16. Поиск APK
       # ---------------------------------------------------------
       - name: Show APK files
         if: always()
@@ -363,7 +341,7 @@ jobs:
             -exec ls -lh {} \;
 
       # ---------------------------------------------------------
-      # 17. Загружаем APK
+      # 17. Загрузка APK
       # ---------------------------------------------------------
       - name: Upload APK
         if: success()
@@ -376,7 +354,7 @@ jobs:
           retention-days: 30
 
       # ---------------------------------------------------------
-      # 18. Если сборка упала — сохраняем логи
+      # 18. Логи при ошибке
       # ---------------------------------------------------------
       - name: Upload Buildozer logs
         if: failure()
