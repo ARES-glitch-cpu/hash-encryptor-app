@@ -16,12 +16,16 @@ orientation = portrait
 android.api = 33
 android.minapi = 21
 android.ndk_api = 21
+android.sdk = 33
+android.ndk = 25b
 
 android.archs = arm64-v8a,armeabi-v7a
 
 android.permissions = READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE
 
 p4a.bootstrap = sdl2
+
+android.gradle_dependencies = com.android.tools.build:gradle:7.4.2
 
 
 [buildozer]
