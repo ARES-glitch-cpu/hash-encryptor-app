@@ -32,6 +32,7 @@ jobs:
             git \
             zip \
             unzip \
+            wget \
             autoconf \
             automake \
             libtool \
@@ -43,36 +44,37 @@ jobs:
             libffi-dev \
             libssl-dev
 
-      - name: Install Android SDK command line tools
+      - name: Install Android SDK
         run: |
           mkdir -p "$HOME/android-sdk/cmdline-tools"
 
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip \
+          wget -q \
+            https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip \
             -O /tmp/cmdline-tools.zip
 
           unzip -q /tmp/cmdline-tools.zip -d /tmp/cmdline-tools
 
           mkdir -p "$HOME/android-sdk/cmdline-tools/latest"
 
-          mv /tmp/cmdline-tools/cmdline-tools/* \
+          cp -r /tmp/cmdline-tools/cmdline-tools/* \
             "$HOME/android-sdk/cmdline-tools/latest/"
 
           echo "ANDROID_HOME=$HOME/android-sdk" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> "$GITHUB_ENV"
+
           echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
           echo "$HOME/android-sdk/platform-tools" >> "$GITHUB_PATH"
 
-      - name: Install Android SDK packages
-        env:
-          ANDROID_HOME: ${{ env.ANDROID_HOME }}
+      - name: Accept Android SDK licenses
         run: |
-          yes | sdkmanager --licenses || true
+          yes | sdkmanager --licenses > /dev/null || true
 
+      - name: Install Android SDK packages
+        run: |
           sdkmanager \
             "platform-tools" \
             "platforms;android-33" \
-            "build-tools;33.0.2" \
-            "ndk;25.2.9519653"
+            "build-tools;33.0.2"
 
       - name: Install Buildozer
         run: |
@@ -80,13 +82,32 @@ jobs:
           pip install --upgrade buildozer
           pip install "cython==0.29.34"
 
-      - name: Prepare Buildozer SDK
+      - name: Prepare Buildozer Android SDK
         run: |
           mkdir -p "$HOME/.buildozer/android/platform"
 
-          ln -sfn \
+          rm -rf "$HOME/.buildozer/android/platform/android-sdk"
+
+          ln -s \
             "$HOME/android-sdk" \
             "$HOME/.buildozer/android/platform/android-sdk"
+
+          mkdir -p \
+            "$HOME/android-sdk/tools/bin"
+
+          ln -sf \
+            "$HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager" \
+            "$HOME/android-sdk/tools/bin/sdkmanager"
+
+          ln -sf \
+            "$HOME/android-sdk/cmdline-tools/latest/bin/avdmanager" \
+            "$HOME/android-sdk/tools/bin/avdmanager"
+
+          echo "SDK structure:"
+          ls -la "$HOME/.buildozer/android/platform/android-sdk/tools/bin"
+
+          echo "sdkmanager:"
+          "$HOME/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager" --version
 
       - name: Build APK
         run: |
