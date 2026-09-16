@@ -23,6 +23,7 @@ android.permissions = READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE
 
 p4a.bootstrap = sdl2
 
+
 [buildozer]
 
 log_level = 2
