@@ -30,7 +30,7 @@ jobs:
 
     - name: Accept Android SDK licenses
       run: |
-        # Автоматически принимаем все лицензии Android SDK
+        # Автоматически принимаем ВСЕ лицензии Android SDK
         yes | sdkmanager --licenses || true
       env:
         ANDROID_HOME: /usr/lib/android-sdk
