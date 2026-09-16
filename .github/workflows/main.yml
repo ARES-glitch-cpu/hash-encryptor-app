@@ -18,7 +18,7 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Set up JDK 17 (CRITICAL)
+    - name: Set up JDK 17
       uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
@@ -34,18 +34,26 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y git zip unzip openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev
 
-    - name: Setup Android SDK
-      uses: android-actions/setup-android@v3
-
     - name: Pre-accept Android licenses
       run: |
+        # Создаем папки для лицензий
         mkdir -p $HOME/.android
-        echo -e "\n24333f8a63b6825ea9c5514f83c2829b004d1fee" > $HOME/.android/android-sdk-license
-        echo -e "\n84831b9409646a918e30573bab4c9c91346d8abd" > $HOME/.android/android-sdk-preview-license
+        mkdir -p $HOME/.buildozer/android/platform/android-sdk/licenses
+        # Записываем хеши принятых лицензий, чтобы Buildozer не задавал вопросов
+        echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" > $HOME/.android/android-sdk-license
+        echo "84831b9409646a918e30573bab4c9c91346d8abd" > $HOME/.android/android-sdk-preview-license
+        echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" > $HOME/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
+        echo "84831b9409646a918e30573bab4c9c91346d8abd" > $HOME/.buildozer/android/platform/android-sdk/licenses/android-sdk-preview-license
 
     - name: Build APK with Buildozer
       run: buildozer android debug
       env:
-        # Указываем Buildozer использовать SDK, установленный действием выше
-        ANDROID_HOME: /usr/local/lib/android/sdk
-        ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+        # Указываем Buildozer использовать скачанный им же SDK
+        ANDROID_HOME: $HOME/.buildozer/android/platform/android-sdk
+        ANDROID_SDK_ROOT: $HOME/.buildozer/android/platform/android-sdk
+
+    - name: Upload APK artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: HashEncryptor-APK
+        path: bin/*.apk
