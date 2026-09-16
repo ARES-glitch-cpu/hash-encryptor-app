@@ -28,16 +28,17 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y git zip unzip openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev
 
-    - name: Clean Buildozer cache (CRITICAL)
+    - name: Pre-accept Android SDK licenses for Buildozer
       run: |
-        # Полностью удаляем старые поврежденные кэши
-        rm -rf ~/.buildozer
-        rm -rf .buildozer
+        # Создаем папку для лицензий там, куда Buildozer скачает SDK
+        mkdir -p $HOME/.buildozer/android/platform/android-sdk/licenses
+        # Добавляем хеши принятых лицензий (используем printf для надежности)
+        printf "\n24333f8a63b6825ea9c5514f83c2829b004d1fee\n" > $HOME/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
+        printf "\n84831b9409646a918e30573bab4c9c91346d8abd\n" > $HOME/.buildozer/android/platform/android-sdk/licenses/android-sdk-preview-license
 
     - name: Build APK with Buildozer
       run: buildozer android debug
       env:
-        # Явно указываем переменные окружения для корректной работы sdkmanager
         ANDROID_HOME: $HOME/.buildozer/android/platform/android-sdk
         ANDROID_SDK_ROOT: $HOME/.buildozer/android/platform/android-sdk
 
