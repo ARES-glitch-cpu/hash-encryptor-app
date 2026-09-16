@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
     - name: Checkout code
@@ -28,22 +28,12 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y git zip unzip openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev
 
-    - name: Pre-accept Android SDK licenses for Buildozer
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+
+    - name: Accept Android licenses
       run: |
-        # Создаем папку для лицензий там, куда Buildozer скачает SDK
-        mkdir -p $HOME/.buildozer/android/platform/android-sdk/licenses
-        # Добавляем хеши принятых лицензий (используем printf для надежности)
-        printf "\n24333f8a63b6825ea9c5514f83c2829b004d1fee\n" > $HOME/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
-        printf "\n84831b9409646a918e30573bab4c9c91346d8abd\n" > $HOME/.buildozer/android/platform/android-sdk/licenses/android-sdk-preview-license
+        yes | sdkmanager --licenses || true
 
     - name: Build APK with Buildozer
       run: buildozer android debug
-      env:
-        ANDROID_HOME: $HOME/.buildozer/android/platform/android-sdk
-        ANDROID_SDK_ROOT: $HOME/.buildozer/android/platform/android-sdk
-
-    - name: Upload APK artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: HashEncryptor-APK
-        path: bin/*.apk
