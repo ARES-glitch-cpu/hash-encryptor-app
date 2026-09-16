@@ -32,25 +32,45 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y git zip unzip openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev
+        sudo apt-get install -y git zip unzip wget autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev
 
-    - name: Pre-accept Android licenses
+    - name: Setup Android SDK and Workaround Buildozer Bug
       run: |
-        # Создаем папки для лицензий
-        mkdir -p $HOME/.android
-        mkdir -p $HOME/.buildozer/android/platform/android-sdk/licenses
-        # Записываем хеши принятых лицензий, чтобы Buildozer не задавал вопросов
-        echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" > $HOME/.android/android-sdk-license
-        echo "84831b9409646a918e30573bab4c9c91346d8abd" > $HOME/.android/android-sdk-preview-license
-        echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" > $HOME/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
-        echo "84831b9409646a918e30573bab4c9c91346d8abd" > $HOME/.buildozer/android/platform/android-sdk/licenses/android-sdk-preview-license
+        # 1. Создаем папку SDK
+        export ANDROID_HOME=/usr/local/lib/android/sdk
+        mkdir -p $ANDROID_HOME
+        
+        # 2. Скачиваем современные command line tools
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
+        unzip -q cmdline-tools.zip -d $ANDROID_HOME
+        
+        # 3. Перемещаем их в папку 'latest', как того требует новый sdkmanager
+        mkdir -p $ANDROID_HOME/cmdline-tools/latest
+        mv $ANDROID_HOME/cmdline-tools/bin $ANDROID_HOME/cmdline-tools/latest/
+        mv $ANDROID_HOME/cmdline-tools/lib $ANDROID_HOME/cmdline-tools/latest/
+        mv $ANDROID_HOME/cmdline-tools/NOTICE.txt $ANDROID_HOME/cmdline-tools/latest/
+        mv $ANDROID_HOME/cmdline-tools/source.properties $ANDROID_HOME/cmdline-tools/latest/
+        rm cmdline-tools.zip
+        
+        # 4. ГЛАВНЫЙ ТРЮК: Создаем "обманку" для Buildozer. 
+        # Buildozer ищет старый путь tools/bin/sdkmanager. Мы создаем скрипт, 
+        # который перенаправляет этот вызов на новый путь.
+        mkdir -p $ANDROID_HOME/tools/bin
+        echo '#!/bin/bash' > $ANDROID_HOME/tools/bin/sdkmanager
+        echo '/usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager "$@"' >> $ANDROID_HOME/tools/bin/sdkmanager
+        chmod +x $ANDROID_HOME/tools/bin/sdkmanager
+        
+        # 5. Принимаем все лицензии
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+        
+        # 6. Предварительно устанавливаем базовые пакеты, чтобы Buildozer не пытался качать их сам
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0"
 
     - name: Build APK with Buildozer
       run: buildozer android debug
       env:
-        # Указываем Buildozer использовать скачанный им же SDK
-        ANDROID_HOME: $HOME/.buildozer/android/platform/android-sdk
-        ANDROID_SDK_ROOT: $HOME/.buildozer/android/platform/android-sdk
+        ANDROID_HOME: /usr/local/lib/android/sdk
+        ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
 
     - name: Upload APK artifact
       uses: actions/upload-artifact@v4
