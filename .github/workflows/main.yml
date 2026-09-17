@@ -13,39 +13,25 @@ jobs:
     env:
       ANDROID_HOME: ${{ github.workspace }}/android-sdk
       ANDROID_SDK_ROOT: ${{ github.workspace }}/android-sdk
+      ANDROIDSDK: ${{ github.workspace }}/android-sdk
 
     steps:
 
-      # ==========================================
-      # 1. CHECKOUT
-      # ==========================================
       - name: Checkout repository
         uses: actions/checkout@v4
 
-
-      # ==========================================
-      # 2. PYTHON
-      # ==========================================
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-
-      # ==========================================
-      # 3. JAVA
-      # ==========================================
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
 
-
-      # ==========================================
-      # 4. SYSTEM DEPENDENCIES
-      # ==========================================
-      - name: Install dependencies
+      - name: Install system dependencies
         shell: bash
         run: |
           set -e
@@ -78,17 +64,9 @@ jobs:
             liblzma-dev \
             gettext
 
-
-      # ==========================================
-      # 5. RUST
-      # ==========================================
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-
-      # ==========================================
-      # 6. INSTALL ANDROID COMMAND LINE TOOLS
-      # ==========================================
       - name: Install Android command line tools
         shell: bash
         run: |
@@ -114,19 +92,18 @@ jobs:
 
           echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
           echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
-          echo "$ANDROID_HOME/emulator" >> "$GITHUB_PATH"
 
           export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
 
           echo "ANDROID_HOME=$ANDROID_HOME"
-          echo "sdkmanager=$(command -v sdkmanager)"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          echo "ANDROIDSDK=$ANDROIDSDK"
+
+          echo "sdkmanager:"
+          command -v sdkmanager
 
           sdkmanager --version
 
-
-      # ==========================================
-      # 7. ACCEPT ANDROID LICENSES
-      # ==========================================
       - name: Accept Android licenses
         shell: bash
         run: |
@@ -136,10 +113,6 @@ jobs:
 
           yes | sdkmanager --licenses > /dev/null || true
 
-
-      # ==========================================
-      # 8. INSTALL ANDROID SDK PACKAGES
-      # ==========================================
       - name: Install Android SDK packages
         shell: bash
         run: |
@@ -151,96 +124,51 @@ jobs:
             "platform-tools" \
             "platforms;android-33" \
             "build-tools;35.0.0" \
-            "cmake;3.22.1" \
-            "ndk;25.2.9519653"
+            "cmake;3.22.1"
 
           yes | sdkmanager --licenses > /dev/null || true
 
-
-      # ==========================================
-      # 9. VERIFY SDK
-      # ==========================================
-      - name: Verify Android SDK
+      - name: Prepare legacy sdkmanager path
         shell: bash
         run: |
           set -e
 
-          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
+          SDK="$ANDROID_HOME"
 
-          echo "=========================================="
-          echo "ANDROID SDK"
-          echo "=========================================="
+          echo "Creating compatibility path for Buildozer..."
 
-          echo "ANDROID_HOME:"
-          echo "$ANDROID_HOME"
+          mkdir -p "$SDK/tools/bin"
 
-          echo
+          ln -sf \
+            "$SDK/cmdline-tools/latest/bin/sdkmanager" \
+            "$SDK/tools/bin/sdkmanager"
 
-          echo "sdkmanager:"
-          command -v sdkmanager
+          ln -sf \
+            "$SDK/cmdline-tools/latest/bin/avdmanager" \
+            "$SDK/tools/bin/avdmanager"
 
-          echo
+          ln -sf \
+            "$SDK/cmdline-tools/latest/bin/apkanalyzer" \
+            "$SDK/tools/bin/apkanalyzer"
 
-          echo "adb:"
-          command -v adb || true
+          echo "Checking sdkmanager..."
 
-          echo
+          ls -la "$SDK/tools/bin/"
 
-          echo "Installed SDK:"
-          sdkmanager --list_installed || true
+          "$SDK/tools/bin/sdkmanager" --version
 
-          echo
-
-          echo "NDK:"
-          ls -la "$ANDROID_HOME/ndk/"
-
-
-      # ==========================================
-      # 10. VERIFY LIBTOOL
-      # ==========================================
-      - name: Verify libtool environment
-        shell: bash
-        run: |
-          set -e
-
-          echo "=========================================="
-          echo "LIBTOOL ENVIRONMENT"
-          echo "=========================================="
-
-          libtool --version
-          autoreconf --version
-          automake --version
-          autoconf --version
-
-          echo
-          echo "Checking LT_SYS_SYMBOL_USCORE..."
-
-          grep -R "LT_SYS_SYMBOL_USCORE" \
-            /usr/share/aclocal \
-            /usr/share/libtool \
-            2>/dev/null | head -20 || true
-
-          echo
-          echo "libltdl-dev files:"
-          dpkg -L libltdl-dev | head -50
-
-
-      # ==========================================
-      # 11. INSTALL BUILDOZER
-      # ==========================================
       - name: Install Buildozer
         shell: bash
         run: |
           set -e
 
-          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install --upgrade \
+            pip \
+            setuptools \
+            wheel
 
           python -m pip install buildozer
 
-
-      # ==========================================
-      # 12. INSTALL CYTHON
-      # ==========================================
       - name: Install Cython
         shell: bash
         run: |
@@ -250,22 +178,35 @@ jobs:
 
           cython --version
 
-
-      # ==========================================
-      # 13. SHOW BUILDOZER VERSION
-      # ==========================================
-      - name: Show Buildozer version
+      - name: Show versions
         shell: bash
         run: |
           set -e
 
+          echo "Python:"
+          python --version
+
+          echo
+          echo "Java:"
+          java -version
+
+          echo
+          echo "Buildozer:"
           buildozer --version
 
+          echo
+          echo "Cython:"
+          cython --version
 
-      # ==========================================
-      # 14. CONFIGURE BUILDOZER SDK
-      # ==========================================
-      - name: Configure Buildozer Android SDK
+          echo
+          echo "SDK:"
+          echo "$ANDROID_HOME"
+
+          echo
+          echo "sdkmanager:"
+          command -v sdkmanager
+
+      - name: Configure Buildozer SDK
         shell: bash
         run: |
           set -e
@@ -278,41 +219,29 @@ jobs:
             "$ANDROID_HOME" \
             "$HOME/.buildozer/android/platform/android-sdk"
 
-          echo "Buildozer SDK link:"
+          echo "Buildozer SDK:"
           ls -la "$HOME/.buildozer/android/platform/"
 
           echo
+          echo "SDK:"
+          ls -la "$HOME/.buildozer/android/platform/android-sdk"
 
-          echo "SDK through Buildozer:"
-          ls -la \
-            "$HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/"
+          echo
+          echo "Legacy sdkmanager:"
+          ls -la "$HOME/.buildozer/android/platform/android-sdk/tools/bin/"
 
-
-      # ==========================================
-      # 15. CONFIGURE NDK
-      # ==========================================
-      - name: Configure Android NDK
+      - name: Configure environment
         shell: bash
         run: |
           set -e
 
-          export ANDROID_NDK="$ANDROID_HOME/ndk/25.2.9519653"
-          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/25.2.9519653"
-          export ANDROID_NDK_ROOT="$ANDROID_HOME/ndk/25.2.9519653"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "ANDROIDSDK=$ANDROID_HOME" >> "$GITHUB_ENV"
 
-          echo "ANDROID_NDK=$ANDROID_NDK" >> "$GITHUB_ENV"
-          echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME" >> "$GITHUB_ENV"
-          echo "ANDROID_NDK_ROOT=$ANDROID_NDK_ROOT" >> "$GITHUB_ENV"
+          echo "PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH" >> "$GITHUB_ENV"
 
-          echo "ANDROID_NDK=$ANDROID_NDK"
-          echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME"
-          echo "ANDROID_NDK_ROOT=$ANDROID_NDK_ROOT"
-
-
-      # ==========================================
-      # 16. CLEAN BUILDOZER
-      # ==========================================
-      - name: Clean Buildozer
+      - name: Clean project build
         shell: bash
         run: |
           set -e
@@ -320,99 +249,31 @@ jobs:
           rm -rf .buildozer
           rm -rf bin
 
-          rm -rf "$HOME/.buildozer/android/platform/build"
+          mkdir -p .buildozer
+          mkdir -p bin
+
+          echo "Project cleaned."
+
+      - name: Recreate Buildozer SDK link
+        shell: bash
+        run: |
+          set -e
 
           mkdir -p "$HOME/.buildozer/android/platform"
+
+          rm -rf "$HOME/.buildozer/android/platform/android-sdk"
 
           ln -s \
             "$ANDROID_HOME" \
             "$HOME/.buildozer/android/platform/android-sdk"
 
-          echo "Clean complete"
+          echo "Checking Buildozer SDK..."
 
+          test -x \
+            "$HOME/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager"
 
-      # ==========================================
-      # 17. VERIFY PYTHON
-      # ==========================================
-      - name: Verify Python environment
-        shell: bash
-        run: |
-          set -e
+          "$HOME/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager" --version
 
-          echo "Python:"
-          python --version
-
-          echo
-
-          echo "Pip:"
-          python -m pip --version
-
-          echo
-
-          echo "Cython:"
-          cython --version
-
-          echo
-
-          echo "Buildozer:"
-          buildozer --version
-
-
-      # ==========================================
-      # 18. FINAL BUILD ENVIRONMENT
-      # ==========================================
-      - name: Show build configuration
-        shell: bash
-        run: |
-          set -e
-
-          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
-
-          echo "=========================================="
-          echo "FINAL BUILD ENVIRONMENT"
-          echo "=========================================="
-
-          echo "Python:"
-          python --version
-
-          echo
-
-          echo "Android SDK:"
-          echo "$ANDROID_HOME"
-
-          echo
-
-          echo "Android NDK:"
-          echo "$ANDROID_NDK"
-
-          echo
-
-          echo "sdkmanager:"
-          command -v sdkmanager
-
-          echo
-
-          echo "Buildozer:"
-          buildozer --version
-
-          echo
-
-          echo "Cython:"
-          cython --version
-
-          echo
-
-          echo "Java:"
-          java -version
-
-          echo
-
-          echo "=========================================="
-
-
-      # ==========================================
-      # 19. BUILD APK
-      # ==========================================
       - name: Build APK
         shell: bash
         env:
@@ -420,35 +281,40 @@ jobs:
         run: |
           set -e
 
-          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
-
           export ANDROID_HOME="$ANDROID_HOME"
           export ANDROID_SDK_ROOT="$ANDROID_HOME"
+          export ANDROIDSDK="$ANDROID_HOME"
 
-          export ANDROID_NDK="$ANDROID_HOME/ndk/25.2.9519653"
-          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/25.2.9519653"
-          export ANDROID_NDK_ROOT="$ANDROID_HOME/ndk/25.2.9519653"
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
 
           echo "=========================================="
           echo "BUILDING APK"
           echo "=========================================="
 
           echo "ANDROID_HOME=$ANDROID_HOME"
-          echo "ANDROID_NDK=$ANDROID_NDK"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          echo "ANDROIDSDK=$ANDROIDSDK"
 
           echo
+          echo "SDK manager:"
+          "$ANDROID_HOME/tools/bin/sdkmanager" --version
+
+          echo
+          echo "Buildozer:"
+          buildozer --version
+
+          echo
+          echo "Starting build..."
 
           buildozer -v android debug
 
-
-      # ==========================================
-      # 20. LIST APK
-      # ==========================================
       - name: List APK
         if: always()
         shell: bash
         run: |
-          echo "APK files:"
+          echo "=========================================="
+          echo "APK FILES"
+          echo "=========================================="
 
           find bin \
             -maxdepth 1 \
@@ -456,10 +322,6 @@ jobs:
             \( -name "*.apk" -o -name "*.aab" \) \
             -print 2>/dev/null || true
 
-
-      # ==========================================
-      # 21. UPLOAD APK
-      # ==========================================
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
