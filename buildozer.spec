@@ -16,9 +16,7 @@ orientation = portrait
 android.api = 33
 android.minapi = 21
 android.ndk_api = 21
-
 android.ndk = 25b
-android.skip_update = True
 
 android.archs = arm64-v8a,armeabi-v7a
 
