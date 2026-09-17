@@ -17,19 +17,38 @@ jobs:
 
     steps:
 
+      # ==========================================
+      # CHECKOUT
+      # ==========================================
+
       - name: Checkout repository
         uses: actions/checkout@v4
+
+
+      # ==========================================
+      # PYTHON
+      # ==========================================
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
+
+      # ==========================================
+      # JAVA
+      # ==========================================
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
+
+
+      # ==========================================
+      # LINUX DEPENDENCIES
+      # ==========================================
 
       - name: Install system dependencies
         shell: bash
@@ -64,8 +83,18 @@ jobs:
             liblzma-dev \
             gettext
 
+
+      # ==========================================
+      # RUST
+      # ==========================================
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+
+
+      # ==========================================
+      # ANDROID SDK
+      # ==========================================
 
       - name: Install Android command line tools
         shell: bash
@@ -95,14 +124,24 @@ jobs:
 
           export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
 
+          echo "=========================================="
+          echo "ANDROID SDK"
+          echo "=========================================="
+
           echo "ANDROID_HOME=$ANDROID_HOME"
           echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
           echo "ANDROIDSDK=$ANDROIDSDK"
 
+          echo
           echo "sdkmanager:"
           command -v sdkmanager
 
           sdkmanager --version
+
+
+      # ==========================================
+      # ANDROID LICENSES
+      # ==========================================
 
       - name: Accept Android licenses
         shell: bash
@@ -112,6 +151,11 @@ jobs:
           export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
 
           yes | sdkmanager --licenses > /dev/null || true
+
+
+      # ==========================================
+      # ANDROID PACKAGES
+      # ==========================================
 
       - name: Install Android SDK packages
         shell: bash
@@ -128,6 +172,11 @@ jobs:
 
           yes | sdkmanager --licenses > /dev/null || true
 
+
+      # ==========================================
+      # LEGACY SDK COMPATIBILITY
+      # ==========================================
+
       - name: Prepare legacy sdkmanager path
         shell: bash
         run: |
@@ -135,7 +184,9 @@ jobs:
 
           SDK="$ANDROID_HOME"
 
-          echo "Creating compatibility path for Buildozer..."
+          echo "=========================================="
+          echo "PREPARING LEGACY SDK PATH"
+          echo "=========================================="
 
           mkdir -p "$SDK/tools/bin"
 
@@ -151,11 +202,18 @@ jobs:
             "$SDK/cmdline-tools/latest/bin/apkanalyzer" \
             "$SDK/tools/bin/apkanalyzer"
 
-          echo "Checking sdkmanager..."
-
+          echo
+          echo "Legacy SDK directory:"
           ls -la "$SDK/tools/bin/"
 
+          echo
+          echo "sdkmanager version:"
           "$SDK/tools/bin/sdkmanager" --version
+
+
+      # ==========================================
+      # BUILDOZER
+      # ==========================================
 
       - name: Install Buildozer
         shell: bash
@@ -169,6 +227,11 @@ jobs:
 
           python -m pip install buildozer
 
+
+      # ==========================================
+      # CYTHON
+      # ==========================================
+
       - name: Install Cython
         shell: bash
         run: |
@@ -176,13 +239,24 @@ jobs:
 
           python -m pip install "Cython<3"
 
+          echo "Cython:"
           cython --version
+
+
+      # ==========================================
+      # SHOW VERSIONS
+      # ==========================================
 
       - name: Show versions
         shell: bash
         run: |
           set -e
 
+          echo "=========================================="
+          echo "VERSIONS"
+          echo "=========================================="
+
+          echo
           echo "Python:"
           python --version
 
@@ -199,12 +273,17 @@ jobs:
           cython --version
 
           echo
-          echo "SDK:"
+          echo "Android SDK:"
           echo "$ANDROID_HOME"
 
           echo
           echo "sdkmanager:"
           command -v sdkmanager
+
+
+      # ==========================================
+      # CONFIGURE BUILDOZER SDK
+      # ==========================================
 
       - name: Configure Buildozer SDK
         shell: bash
@@ -219,7 +298,12 @@ jobs:
             "$ANDROID_HOME" \
             "$HOME/.buildozer/android/platform/android-sdk"
 
-          echo "Buildozer SDK:"
+          echo "=========================================="
+          echo "BUILDOZER SDK"
+          echo "=========================================="
+
+          echo
+          echo "Buildozer platform:"
           ls -la "$HOME/.buildozer/android/platform/"
 
           echo
@@ -228,7 +312,13 @@ jobs:
 
           echo
           echo "Legacy sdkmanager:"
-          ls -la "$HOME/.buildozer/android/platform/android-sdk/tools/bin/"
+          ls -la \
+            "$HOME/.buildozer/android/platform/android-sdk/tools/bin/"
+
+
+      # ==========================================
+      # ENVIRONMENT
+      # ==========================================
 
       - name: Configure environment
         shell: bash
@@ -241,6 +331,11 @@ jobs:
 
           echo "PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH" >> "$GITHUB_ENV"
 
+
+      # ==========================================
+      # CLEAN PROJECT
+      # ==========================================
+
       - name: Clean project build
         shell: bash
         run: |
@@ -252,7 +347,12 @@ jobs:
           mkdir -p .buildozer
           mkdir -p bin
 
-          echo "Project cleaned."
+          echo "Project build directory cleaned."
+
+
+      # ==========================================
+      # RECREATE SDK LINK
+      # ==========================================
 
       - name: Recreate Buildozer SDK link
         shell: bash
@@ -267,19 +367,27 @@ jobs:
             "$ANDROID_HOME" \
             "$HOME/.buildozer/android/platform/android-sdk"
 
-          echo "Checking Buildozer SDK..."
+          echo "=========================================="
+          echo "CHECKING BUILDOZER SDK"
+          echo "=========================================="
 
           test -x \
             "$HOME/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager"
 
           "$HOME/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager" --version
 
+
+      # ==========================================
+      # BUILD APK
+      # ==========================================
+
       - name: Build APK
         shell: bash
         env:
           P4A_BUILD_VERSION: master
+
         run: |
-          set -e
+          set +e
 
           export ANDROID_HOME="$ANDROID_HOME"
           export ANDROID_SDK_ROOT="$ANDROID_HOME"
@@ -291,6 +399,7 @@ jobs:
           echo "BUILDING APK"
           echo "=========================================="
 
+          echo
           echo "ANDROID_HOME=$ANDROID_HOME"
           echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
           echo "ANDROIDSDK=$ANDROIDSDK"
@@ -304,9 +413,72 @@ jobs:
           buildozer --version
 
           echo
-          echo "Starting build..."
+          echo "Starting Buildozer..."
+          echo
 
-          buildozer -v android debug
+          buildozer -v android debug > build.log 2>&1
+
+          BUILD_EXIT_CODE=$?
+
+          echo
+          echo "=========================================="
+          echo "BUILD EXIT CODE: $BUILD_EXIT_CODE"
+          echo "=========================================="
+
+          echo
+          echo "=========================================="
+          echo "LAST 200 LINES OF BUILD LOG"
+          echo "=========================================="
+
+          tail -n 200 build.log
+
+          echo
+          echo "=========================================="
+          echo "SEARCHING FOR ERRORS"
+          echo "=========================================="
+
+          grep -Ein \
+            "error:|error |failed|failure|exception|traceback|fatal|undefined reference|command failed" \
+            build.log | tail -n 100 || true
+
+          echo
+          echo "=========================================="
+          echo "END OF ERROR SEARCH"
+          echo "=========================================="
+
+          if [ "$BUILD_EXIT_CODE" -ne 0 ]; then
+
+            echo
+            echo "=========================================="
+            echo "BUILD FAILED"
+            echo "=========================================="
+
+            exit "$BUILD_EXIT_CODE"
+          fi
+
+          echo
+          echo "=========================================="
+          echo "BUILD SUCCESSFUL"
+          echo "=========================================="
+
+
+      # ==========================================
+      # UPLOAD FULL BUILD LOG
+      # ==========================================
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+
+        with:
+          name: build-log
+          path: build.log
+          if-no-files-found: warn
+
+
+      # ==========================================
+      # LIST APK
+      # ==========================================
 
       - name: List APK
         if: always()
@@ -322,12 +494,20 @@ jobs:
             \( -name "*.apk" -o -name "*.aab" \) \
             -print 2>/dev/null || true
 
+
+      # ==========================================
+      # UPLOAD APK
+      # ==========================================
+
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
+
         with:
           name: hash-encryptor-apk
+
           path: |
             bin/*.apk
             bin/*.aab
+
           if-no-files-found: error
