@@ -12,25 +12,28 @@ jobs:
 
     steps:
 
-      # ---------------------------------------------------------
-      # 1. Получаем исходники
-      # ---------------------------------------------------------
+      # =========================================================
+      # 1. Checkout
+      # =========================================================
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
 
-      # ---------------------------------------------------------
-      # 2. Python 3.11 для самого Buildozer
-      # ---------------------------------------------------------
+      # =========================================================
+      # 2. Python для Buildozer
+      # =========================================================
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
 
-      # ---------------------------------------------------------
-      # 3. Java 17
-      # ---------------------------------------------------------
+      # =========================================================
+      # 3. Java
+      # =========================================================
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -38,9 +41,10 @@ jobs:
           java-version: "17"
 
 
-      # ---------------------------------------------------------
-      # 4. Системные зависимости
-      # ---------------------------------------------------------
+      # =========================================================
+      # 4. Linux зависимости
+      # =========================================================
+
       - name: Install Linux dependencies
         shell: bash
         run: |
@@ -74,20 +78,20 @@ jobs:
             liblzma-dev \
             gettext
 
-          echo "Installed libltdl-dev:"
-          dpkg -s libltdl-dev | grep -E "Package|Version"
 
-
-      # ---------------------------------------------------------
+      # =========================================================
       # 5. Rust
-      # ---------------------------------------------------------
+      # =========================================================
+
       - name: Install Rust
         shell: bash
         run: |
           set -e
 
           if ! command -v rustc >/dev/null 2>&1; then
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+            curl --proto '=https' \
+              --tlsv1.2 \
+              -sSf https://sh.rustup.rs \
               | sh -s -- -y
           fi
 
@@ -97,26 +101,38 @@ jobs:
           cargo --version
 
 
-      # ---------------------------------------------------------
-      # 6. Python packages для Buildozer
-      # ---------------------------------------------------------
+      # =========================================================
+      # 6. Python инструменты
+      # =========================================================
+
       - name: Install Python build tools
         shell: bash
         run: |
           set -e
 
-          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install --upgrade \
+            pip \
+            setuptools \
+            wheel
 
           python -m pip install "Cython<3.4"
+
           python -m pip install buildozer
 
-          buildozer --version
+          echo "Python:"
+          python --version
+
+          echo "Cython:"
           cython --version
 
+          echo "Buildozer:"
+          buildozer --version
 
-      # ---------------------------------------------------------
-      # 7. Android SDK
-      # ---------------------------------------------------------
+
+      # =========================================================
+      # 7. Android SDK Command Line Tools
+      # =========================================================
+
       - name: Install Android command line tools
         shell: bash
         run: |
@@ -125,9 +141,13 @@ jobs:
           export ANDROID_HOME="$GITHUB_WORKSPACE/android-sdk"
           export ANDROID_SDK_ROOT="$ANDROID_HOME"
 
+          echo "ANDROID_HOME=$ANDROID_HOME"
+
           mkdir -p "$ANDROID_HOME/cmdline-tools"
 
           cd /tmp
+
+          rm -f commandlinetools.zip
 
           wget -q \
             https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip \
@@ -137,37 +157,104 @@ jobs:
 
           mkdir -p "$ANDROID_HOME/cmdline-tools/latest"
 
-          unzip -q commandlinetools.zip \
+          unzip -q \
+            commandlinetools.zip \
             -d "$ANDROID_HOME/cmdline-tools/latest"
 
-          # После распаковки Google создаёт вложенную папку cmdline-tools.
-          # Переносим её содержимое непосредственно в latest.
+          # Google архив содержит:
+          #
+          # cmdline-tools/
+          #   bin/
+          #   lib/
+          #   NOTICE.txt
+          #
+          # Перемещаем содержимое во внешний latest.
+
           if [ -d "$ANDROID_HOME/cmdline-tools/latest/cmdline-tools" ]; then
+
             mv \
               "$ANDROID_HOME/cmdline-tools/latest/cmdline-tools/"* \
               "$ANDROID_HOME/cmdline-tools/latest/"
 
             rmdir \
               "$ANDROID_HOME/cmdline-tools/latest/cmdline-tools"
+
           fi
 
-          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          # -----------------------------------------------------
+          # Проверяем, где реально находится sdkmanager
+          # -----------------------------------------------------
 
+          echo "Searching for sdkmanager..."
+
+          find "$ANDROID_HOME" \
+            -type f \
+            -name sdkmanager \
+            -print
+
+          SDKMANAGER_PATH=$(find "$ANDROID_HOME" \
+            -type f \
+            -name sdkmanager \
+            -print -quit)
+
+          if [ -z "$SDKMANAGER_PATH" ]; then
+            echo "ERROR: sdkmanager was not found!"
+            exit 1
+          fi
+
+          echo "Found sdkmanager:"
+          echo "$SDKMANAGER_PATH"
+
+          SDKMANAGER_DIR=$(dirname "$SDKMANAGER_PATH")
+
+          echo "sdkmanager directory:"
+          echo "$SDKMANAGER_DIR"
+
+          # Добавляем директорию sdkmanager в PATH
+          echo "$SDKMANAGER_DIR" >> "$GITHUB_PATH"
+
+          # Также сохраняем Android переменные
           echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+
+          # Внутри текущего shell
+          export PATH="$SDKMANAGER_DIR:$PATH"
+
+          echo "PATH:"
+          echo "$PATH"
+
+          echo "sdkmanager:"
+          command -v sdkmanager
 
           sdkmanager --version
 
 
-      # ---------------------------------------------------------
-      # 8. Устанавливаем Android SDK / NDK
-      # ---------------------------------------------------------
+      # =========================================================
+      # 8. Установка Android SDK / NDK
+      # =========================================================
+
       - name: Install Android SDK packages
         shell: bash
         run: |
           set -e
 
+          export ANDROID_HOME="$GITHUB_WORKSPACE/android-sdk"
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
+
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
+
+          echo "ANDROID_HOME=$ANDROID_HOME"
+
+          echo "sdkmanager location:"
+          command -v sdkmanager
+
+          sdkmanager --version
+
+          echo "Accepting Android licenses..."
+
           yes | sdkmanager --licenses >/dev/null || true
+
+          echo "Installing Android packages..."
 
           sdkmanager \
             "platform-tools" \
@@ -176,13 +263,15 @@ jobs:
             "cmake;3.22.1" \
             "ndk;25.2.9519653"
 
-          echo "Installed SDK packages:"
+          echo "Installed packages:"
+
           sdkmanager --list_installed | head -100
 
 
-      # ---------------------------------------------------------
-      # 9. Проверяем libtool/libltdl
-      # ---------------------------------------------------------
+      # =========================================================
+      # 9. Проверяем libtool
+      # =========================================================
+
       - name: Verify libtool environment
         shell: bash
         run: |
@@ -197,16 +286,19 @@ jobs:
 
           echo
           echo "LT_SYS_SYMBOL_USCORE:"
-          grep -R "LT_SYS_SYMBOL_USCORE" \
+
+          grep -R \
+            "LT_SYS_SYMBOL_USCORE" \
             /usr/share/aclocal \
             /usr/share/libtool \
             /usr/share 2>/dev/null \
             | head -20 || true
 
 
-      # ---------------------------------------------------------
-      # 10. Подготовка переменных Android
-      # ---------------------------------------------------------
+      # =========================================================
+      # 10. Android переменные
+      # =========================================================
+
       - name: Configure Android environment
         shell: bash
         run: |
@@ -226,17 +318,23 @@ jobs:
           echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME" >> "$GITHUB_ENV"
           echo "ANDROID_NDK_ROOT=$ANDROID_NDK_ROOT" >> "$GITHUB_ENV"
 
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          echo "ANDROID_NDK=$ANDROID_NDK"
+          echo "ANDROID_HOME:"
+          echo "$ANDROID_HOME"
+
+          echo "ANDROID_NDK:"
+          echo "$ANDROID_NDK"
 
 
-      # ---------------------------------------------------------
-      # 11. Полностью очищаем старые Buildozer/p4a файлы
-      # ---------------------------------------------------------
+      # =========================================================
+      # 11. Полная очистка старой сборки
+      # =========================================================
+
       - name: Clean Buildozer
         shell: bash
         run: |
           set -e
+
+          echo "Removing old Buildozer files..."
 
           rm -rf .buildozer
           rm -rf bin
@@ -246,10 +344,13 @@ jobs:
 
           mkdir -p "$HOME/.buildozer/android/platform"
 
+          echo "Clean completed."
 
-      # ---------------------------------------------------------
-      # 12. Создаём ссылку на Android SDK для Buildozer
-      # ---------------------------------------------------------
+
+      # =========================================================
+      # 12. Связываем Buildozer с Android SDK
+      # =========================================================
+
       - name: Configure Buildozer Android SDK
         shell: bash
         run: |
@@ -261,52 +362,100 @@ jobs:
             "$ANDROID_HOME" \
             ".buildozer/android/platform/android-sdk"
 
+          echo "Buildozer Android platform directory:"
+
           ls -la .buildozer/android/platform/
 
 
-      # ---------------------------------------------------------
-      # 13. Проверяем Python
-      # ---------------------------------------------------------
-      - name: Verify Python environment
+      # =========================================================
+      # 13. Проверяем окружение
+      # =========================================================
+
+      - name: Verify build environment
         shell: bash
         run: |
           set -e
 
-          echo "Host Python:"
-          python --version
+          echo "=========================================="
+          echo "Python"
+          echo "=========================================="
 
-          echo
-          echo "Python executable:"
+          python --version
           which python
 
           echo
-          echo "Buildozer:"
+          echo "=========================================="
+          echo "Buildozer"
+          echo "=========================================="
+
           buildozer --version
 
           echo
-          echo "Cython:"
+          echo "=========================================="
+          echo "Cython"
+          echo "=========================================="
+
           cython --version
 
+          echo
+          echo "=========================================="
+          echo "Java"
+          echo "=========================================="
 
-      # ---------------------------------------------------------
-      # 14. Проверяем buildozer.spec
-      # ---------------------------------------------------------
+          java -version
+
+          echo
+          echo "=========================================="
+          echo "Android SDK"
+          echo "=========================================="
+
+          echo "$ANDROID_HOME"
+
+          echo
+          echo "sdkmanager:"
+          command -v sdkmanager
+
+          sdkmanager --version
+
+          echo
+          echo "=========================================="
+          echo "Android NDK"
+          echo "=========================================="
+
+          echo "$ANDROID_NDK"
+
+          test -d "$ANDROID_NDK"
+
+          echo "NDK exists."
+
+
+      # =========================================================
+      # 14. Показываем конфигурацию
+      # =========================================================
+
       - name: Show build configuration
         shell: bash
         run: |
           set -e
 
-          echo "========== buildozer.spec =========="
+          echo "=========================================="
+          echo "buildozer.spec"
+          echo "=========================================="
+
           cat buildozer.spec
 
           echo
-          echo "========== main.py =========="
+          echo "=========================================="
+          echo "main.py"
+          echo "=========================================="
+
           ls -lh main.py
 
 
-      # ---------------------------------------------------------
+      # =========================================================
       # 15. Сборка APK
-      # ---------------------------------------------------------
+      # =========================================================
+
       - name: Build APK
         shell: bash
         env:
@@ -323,40 +472,62 @@ jobs:
 
           export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
 
-          echo "======================================"
+          echo "=========================================="
+          echo "FINAL BUILD ENVIRONMENT"
+          echo "=========================================="
+
           echo "Python:"
           python --version
 
-          echo "======================================"
+          echo
           echo "Android SDK:"
           echo "$ANDROID_HOME"
 
-          echo "======================================"
+          echo
           echo "Android NDK:"
           echo "$ANDROID_NDK"
 
-          echo "======================================"
-          echo "Starting Buildozer..."
+          echo
+          echo "sdkmanager:"
+          command -v sdkmanager
+
+          echo
+          echo "Buildozer:"
+          buildozer --version
+
+          echo
+          echo "=========================================="
+          echo "BUILDING APK"
+          echo "=========================================="
 
           buildozer -v android debug
 
 
-      # ---------------------------------------------------------
-      # 16. Показываем результат
-      # ---------------------------------------------------------
+      # =========================================================
+      # 16. Показываем APK
+      # =========================================================
+
       - name: List APK
         if: always()
         shell: bash
         run: |
           echo "APK files:"
-          find bin -maxdepth 2 -type f \
-            \( -name "*.apk" -o -name "*.aab" \) \
-            -print || true
+
+          if [ -d bin ]; then
+            find bin \
+              -maxdepth 2 \
+              -type f \
+              \( -name "*.apk" -o -name "*.aab" \) \
+              -print
+          else
+            echo "bin directory does not exist."
+          fi
 
 
-      # ---------------------------------------------------------
-      # 17. Загружаем APK как artifact
-      # ---------------------------------------------------------
+      # =========================================================
+      # 17. Загружаем APK
+      # =========================================================
+
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
