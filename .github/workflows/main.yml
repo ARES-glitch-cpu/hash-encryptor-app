@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+
   workflow_dispatch:
 
 jobs:
@@ -35,7 +36,7 @@ jobs:
 
 
       # ================================================
-      # 3. Java 17
+      # 3. Java
       # ================================================
 
       - name: Set up Java
@@ -46,11 +47,14 @@ jobs:
 
 
       # ================================================
-      # 4. Системные зависимости
+      # 4. Зависимости Linux
       # ================================================
 
       - name: Install dependencies
+        shell: bash
         run: |
+          set -e
+
           sudo apt-get update
 
           sudo apt-get install -y \
@@ -62,8 +66,10 @@ jobs:
             build-essential \
             autoconf \
             automake \
+            autopoint \
             libtool \
             libtool-bin \
+            libltdl-dev \
             m4 \
             pkg-config \
             cmake \
@@ -75,8 +81,7 @@ jobs:
             libncursesw5-dev \
             libtinfo6 \
             liblzma-dev \
-            gettext \
-            autopoint
+            gettext
 
 
       # ================================================
@@ -88,7 +93,7 @@ jobs:
 
 
       # ================================================
-      # 6. Android command line tools
+      # 6. Android SDK
       # ================================================
 
       - name: Install Android SDK
@@ -112,7 +117,7 @@ jobs:
 
 
       # ================================================
-      # 7. Android environment
+      # 7. Android PATH
       # ================================================
 
       - name: Configure Android environment
@@ -138,7 +143,7 @@ jobs:
 
 
       # ================================================
-      # 9. Android licenses
+      # 9. Лицензии Android
       # ================================================
 
       - name: Accept Android licenses
@@ -148,7 +153,7 @@ jobs:
 
 
       # ================================================
-      # 10. Android SDK packages
+      # 10. Android компоненты
       # ================================================
 
       - name: Install Android packages
@@ -165,7 +170,7 @@ jobs:
 
 
       # ================================================
-      # 11. Проверяем установленный NDK
+      # 11. Проверка NDK
       # ================================================
 
       - name: Check Android NDK
@@ -182,13 +187,15 @@ jobs:
 
 
       # ================================================
-      # 12. Устанавливаем Buildozer
+      # 12. Buildozer
       # ================================================
 
       - name: Install Buildozer
         shell: bash
         run: |
-          python -m pip install --upgrade pip
+          set -e
+
+          python -m pip install --upgrade pip setuptools wheel
           python -m pip install buildozer
 
 
@@ -199,11 +206,13 @@ jobs:
       - name: Install Cython
         shell: bash
         run: |
+          set -e
+
           python -m pip install "Cython<3"
 
 
       # ================================================
-      # 14. Buildozer SDK compatibility
+      # 14. Совместимость SDK с Buildozer
       # ================================================
 
       - name: Prepare Buildozer SDK
@@ -225,7 +234,7 @@ jobs:
 
 
       # ================================================
-      # 15. Buildozer directories
+      # 15. Buildozer SDK
       # ================================================
 
       - name: Prepare Buildozer
@@ -235,30 +244,36 @@ jobs:
 
           mkdir -p "$HOME/.buildozer/android/platform"
 
-          rm -rf "$HOME/.buildozer/android/platform/android-sdk"
+          rm -rf \
+            "$HOME/.buildozer/android/platform/android-sdk"
 
           ln -s \
             "$ANDROID_HOME" \
             "$HOME/.buildozer/android/platform/android-sdk"
 
-          echo "Buildozer Android SDK:"
+          echo "Buildozer SDK:"
           readlink -f \
             "$HOME/.buildozer/android/platform/android-sdk"
 
 
       # ================================================
-      # 16. Чистим старые файлы
+      # 16. Полная очистка
       # ================================================
 
       - name: Clean Buildozer
         shell: bash
         run: |
+          set -e
+
           rm -rf .buildozer
           rm -rf bin
 
+          rm -rf \
+            "$HOME/.buildozer/android/platform/build"
+
 
       # ================================================
-      # 17. Восстанавливаем ссылку после очистки
+      # 17. Восстановление SDK после очистки
       # ================================================
 
       - name: Restore Buildozer SDK
@@ -268,7 +283,8 @@ jobs:
 
           mkdir -p "$HOME/.buildozer/android/platform"
 
-          rm -rf "$HOME/.buildozer/android/platform/android-sdk"
+          rm -rf \
+            "$HOME/.buildozer/android/platform/android-sdk"
 
           ln -s \
             "$ANDROID_HOME" \
@@ -284,7 +300,7 @@ jobs:
 
 
       # ================================================
-      # 18. Настраиваем NDK
+      # 18. Один NDK
       # ================================================
 
       - name: Configure NDK
@@ -310,17 +326,22 @@ jobs:
 
 
       # ================================================
-      # 20. Показываем APK
+      # 20. Проверка APK
       # ================================================
 
       - name: List APK
         shell: bash
         run: |
-          find bin -type f -name "*.apk" -print
+          set -e
+
+          find bin \
+            -type f \
+            -name "*.apk" \
+            -print
 
 
       # ================================================
-      # 21. Загружаем APK
+      # 21. Загрузка APK
       # ================================================
 
       - name: Upload APK
