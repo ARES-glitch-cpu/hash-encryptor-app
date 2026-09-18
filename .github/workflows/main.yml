@@ -378,6 +378,30 @@ jobs:
 
 
       # ==========================================
+      # VERIFY P4A VERSION
+      # ==========================================
+
+      - name: Verify p4a configuration
+        shell: bash
+        run: |
+          set -e
+
+          echo "=========================================="
+          echo "P4A CONFIGURATION"
+          echo "=========================================="
+
+          echo
+          echo "Buildozer spec:"
+          grep -E \
+            "^(requirements|p4a\.branch|p4a\.commit|android\.archs|android\.api|android\.ndk)" \
+            buildozer.spec || true
+
+          echo
+          echo "Expected p4a:"
+          echo "v2024.01.21"
+          echo "commit 957a3e5"
+
+      # ==========================================
       # BUILD APK
       # ==========================================
 
@@ -400,6 +424,10 @@ jobs:
           echo "ANDROID_HOME=$ANDROID_HOME"
           echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
           echo "ANDROIDSDK=$ANDROIDSDK"
+
+          echo
+          echo "Python:"
+          python --version
 
           echo
           echo "SDK manager:"
